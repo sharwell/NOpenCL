@@ -5,6 +5,7 @@ namespace NOpenCL
 {
     using System;
     using System.Runtime.InteropServices;
+    using System.Threading.Tasks;
     using NOpenCL.SafeHandles;
 
     /// <content>
@@ -202,15 +203,49 @@ namespace NOpenCL
         public static EventSafeHandle EnqueueWriteBuffer(CommandQueueSafeHandle commandQueue, BufferSafeHandle buffer, bool blocking, IntPtr offset, IntPtr size, IntPtr source, EventSafeHandle[] eventWaitList)
         {
             if (commandQueue == null)
-                throw new ArgumentNullException("commandQueue");
+                throw new ArgumentNullException(nameof(commandQueue));
             if (buffer == null)
-                throw new ArgumentNullException("buffer");
+                throw new ArgumentNullException(nameof(buffer));
             if (source == IntPtr.Zero)
-                throw new ArgumentNullException("destination");
+                throw new ArgumentNullException(nameof(source));
 
             EventSafeHandle result;
             ErrorHandler.ThrowOnFailure(clEnqueueWriteBuffer(commandQueue, buffer, blocking, offset, size, source, GetNumItems(eventWaitList), GetItems(eventWaitList), out result));
             return result;
+        }
+
+        public static Task WriteBufferAsync(CommandQueueSafeHandle commandQueue, BufferSafeHandle buffer, IntPtr offset, IntPtr size, IntPtr source)
+        {
+            if (commandQueue == null)
+                throw new ArgumentNullException(nameof(commandQueue));
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+            if (source == IntPtr.Zero)
+                throw new ArgumentNullException(nameof(source));
+
+            var result = new TaskCompletionSource<VoidResult>();
+            bool blocking = false;
+            EventSafeHandle handle = EnqueueWriteBuffer(commandQueue, buffer, blocking, offset, size, source, new EventSafeHandle[0]);
+            EventCallback eventNotify =
+                (eventHandle, status, userData) =>
+                {
+                    try
+                    {
+                        ErrorHandler.ThrowOnFailure((ErrorCode)status);
+                        result.SetResult(default(VoidResult));
+                    }
+                    catch (Exception ex)
+                    {
+                        result.SetException(ex);
+                    }
+                    finally
+                    {
+                        handle.Dispose();
+                    }
+                };
+
+            SetEventCallback(handle, ExecutionStatus.Complete, eventNotify, IntPtr.Zero);
+            return result.Task;
         }
 
         [DllImport(ExternDll.OpenCL)]

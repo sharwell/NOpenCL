@@ -208,11 +208,11 @@ namespace NOpenCL
 
         public static void SetEventCallback(EventSafeHandle @event, ExecutionStatus executionCallbackType, EventCallback eventNotify, IntPtr userData)
         {
-            throw new NotImplementedException();
+            ErrorHandler.ThrowOnFailure(clSetEventCallback(@event, executionCallbackType, eventNotify, userData));
         }
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-        public delegate void EventCallback(EventSafeHandle @event, ExecutionStatus eventCommandExecutionStatus, IntPtr userData);
+        public delegate void EventCallback(IntPtr rawEventHandle, ExecutionStatus eventCommandExecutionStatus, IntPtr userData);
 
         [DllImport(ExternDll.OpenCL)]
         private static extern ErrorCode clRetainEvent(EventSafeHandle @event);

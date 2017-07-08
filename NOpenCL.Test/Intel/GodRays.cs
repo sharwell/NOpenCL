@@ -766,32 +766,40 @@ namespace NOpenCL.Test.Intel
 ////}
 
 ////// The following would be generated:
-////public class GodRays2 : IDisposable
+////namespace TODO
 ////{
-////    private const string Source = "";
+////    using System;
+////    using System.Runtime.InteropServices;
+////    using NOpenCL;
+////    using Buffer = NOpenCL.Buffer;
 
-////    private readonly Program _program;
-////    private readonly Kernel _godRaysImpl;
-
-////    public GodRays2(Context context)
+////    public class GodRays2 : IDisposable
 ////    {
-////        if (context == null)
-////            throw new ArgumentNullException(nameof(context));
+////        private const string Source = "";
 
-////        _program = context.CreateProgramWithSource(Source);
-////        _program.Build();
-////        _godRaysImpl = _program.CreateKernel(nameof(GodRaysImpl));
-////    }
+////        private readonly Program _program;
+////        private readonly Kernel _godRaysImpl;
 
-////    public async EventTask GodRaysImpl([In] Buffer inputImage, [In, Out] Buffer outputImage, int width, int height, uint blend)
-////    {
-////        using (var kernel = _program.CreateKernel(nameof(GodRaysImpl)))
+////        public GodRays2(Context context)
 ////        {
-////            kernel.Arguments[0].SetValue(inputImage);
-////            kernel.Arguments[1].SetValue(outputImage);
-////            kernel.Arguments[2].SetValue(width);
-////            kernel.Arguments[3].SetValue(height);
-////            kernel.Arguments[4].SetValue((int)blend);
+////            if (context == null)
+////                throw new ArgumentNullException(nameof(context));
+
+////            _program = context.CreateProgramWithSource(Source);
+////            _program.Build();
+////            _godRaysImpl = _program.CreateKernel(nameof(GodRaysImpl));
+////        }
+
+////        public async EventTask GodRaysImpl([In] Buffer inputImage, [In, Out] Buffer outputImage, int width, int height, uint blend)
+////        {
+////            using (var kernel = _program.CreateKernel(nameof(GodRaysImpl)))
+////            {
+////                kernel.Arguments[0].SetValue(inputImage);
+////                kernel.Arguments[1].SetValue(outputImage);
+////                kernel.Arguments[2].SetValue(width);
+////                kernel.Arguments[3].SetValue(height);
+////                kernel.Arguments[4].SetValue((int)blend);
+////            }
 ////        }
 ////    }
 ////}

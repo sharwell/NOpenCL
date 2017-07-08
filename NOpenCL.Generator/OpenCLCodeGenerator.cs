@@ -7,30 +7,34 @@ namespace NOpenCL.Generator
     using System.Collections.Generic;
     using System.Collections.Immutable;
     using System.Linq;
+    using System.Runtime.InteropServices;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
     using Microsoft.CodeAnalysis;
     using Microsoft.CodeAnalysis.CSharp;
     using Microsoft.CodeAnalysis.CSharp.Syntax;
+    using Microsoft.CodeAnalysis.Formatting;
     using Microsoft.CodeAnalysis.MSBuild;
     using Microsoft.CodeAnalysis.Text;
 
     public class OpenCLCodeGenerator
     {
+        private readonly Workspace _workspace;
         private readonly Solution _solution;
 
         private INamedTypeSymbol _kernelAttribute;
 
-        private OpenCLCodeGenerator(Solution solution)
+        private OpenCLCodeGenerator(Workspace workspace, Solution solution)
         {
+            _workspace = workspace;
             _solution = solution;
         }
 
         public static async Task<OpenCLCodeGenerator> CreateAsync(string solutionFilePath, CancellationToken cancellationToken)
         {
-            var solution = await OpenSolutionAsync(solutionFilePath, cancellationToken).ConfigureAwait(false);
-            return new OpenCLCodeGenerator(solution);
+            var (workspace, solution) = await OpenSolutionAsync(solutionFilePath, cancellationToken).ConfigureAwait(false);
+            return new OpenCLCodeGenerator(workspace, solution);
         }
 
         public Task GenerateCodeForProjectAsync(string projectFilePath, CancellationToken cancellationToken)
@@ -62,7 +66,7 @@ namespace NOpenCL.Generator
                 case ITypeSymbol typeSymbol:
                     if (typeSymbol.ContainingAssembly.Equals(compilation.Assembly))
                     {
-                        await GenerateCodeForTypeAsync(typeSymbol, cancellationToken).ConfigureAwait(false);
+                        await GenerateCodeForTypeAsync(compilation, typeSymbol, cancellationToken).ConfigureAwait(false);
                     }
 
                     break;
@@ -73,14 +77,14 @@ namespace NOpenCL.Generator
             }
         }
 
-        private async Task GenerateCodeForTypeAsync(ITypeSymbol typeSymbol, CancellationToken cancellationToken)
+        private async Task<ImmutableArray<(string, SourceText)>> GenerateCodeForTypeAsync(Compilation compilation, ITypeSymbol typeSymbol, CancellationToken cancellationToken)
         {
             var kernels = typeSymbol.GetMembers()
                 .Where(member => member.GetAttributes().Any(attribute => attribute.AttributeClass.Equals(_kernelAttribute)))
                 .ToImmutableArray();
             if (kernels.IsEmpty)
             {
-                return;
+                return ImmutableArray<(string, SourceText)>.Empty;
             }
 
             if (typeSymbol.TypeKind != TypeKind.Class || !typeSymbol.IsStatic)
@@ -95,19 +99,165 @@ namespace NOpenCL.Generator
                 visitor.Visit(syntax);
             }
 
-            Console.WriteLine(visitor.EmbeddedResource);
+            var builder = ImmutableArray.CreateBuilder<(string, SourceText)>();
+            builder.Add((typeSymbol.Name + ".g.cl", SourceText.From(visitor.EmbeddedResource, Encoding.UTF8)));
 
             // Generate the harness
+            var harness = SyntaxFactory.ClassDeclaration(typeSymbol.Name)
+                .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.PartialKeyword))
+                .AddBaseListTypes(SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName(nameof(IDisposable))));
+
+            NameSyntax namespaceName = SyntaxFactory.IdentifierName("TODO");
+            string embeddedResource = namespaceName.ToString() + "." + builder[0].Item1;
+            harness = harness.AddMembers(
+                SyntaxFactory
+                    .FieldDeclaration(
+                        SyntaxFactory.VariableDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)))
+                        .AddVariables(SyntaxFactory.VariableDeclarator("Source").WithInitializer(SyntaxFactory.EqualsValueClause(SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(embeddedResource))))))
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword), SyntaxFactory.Token(SyntaxKind.ConstKeyword)),
+                SyntaxFactory
+                    .FieldDeclaration(
+                        SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("Program"))
+                            .AddVariables(SyntaxFactory.VariableDeclarator("_program")))
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword), SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)),
+                SyntaxFactory
+                    .FieldDeclaration(
+                        SyntaxFactory.VariableDeclaration(SyntaxFactory.IdentifierName("Kernel"))
+                            .AddVariables(SyntaxFactory.VariableDeclarator("_kernel")))
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword), SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)),
+                SyntaxFactory.ConstructorDeclaration(typeSymbol.Name)
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+                    .AddParameterListParameters(SyntaxFactory.Parameter(SyntaxFactory.Identifier("context")).WithType(SyntaxFactory.IdentifierName("Context")))
+                    .AddBodyStatements(
+                        SyntaxFactory.IfStatement(
+                            SyntaxFactory.BinaryExpression(
+                                SyntaxKind.EqualsExpression,
+                                SyntaxFactory.IdentifierName("context"),
+                                SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                            SyntaxFactory.ThrowStatement(
+                                SyntaxFactory.ObjectCreationExpression(SyntaxFactory.IdentifierName(nameof(ArgumentNullException)))
+                                    .WithArgumentList(SyntaxFactory.ArgumentList(
+                                        SyntaxFactory.SeparatedList(
+                                        new[]
+                                        {
+                                            SyntaxFactory.Argument(
+                                                SyntaxFactory.InvocationExpression(
+                                                    SyntaxFactory.IdentifierName("nameof"),
+                                                    SyntaxFactory.ArgumentList(
+                                                        SyntaxFactory.SeparatedList(
+                                                            new[] { SyntaxFactory.Argument(SyntaxFactory.IdentifierName("context")) })))),
+                                        }))))),
+                        SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            SyntaxFactory.IdentifierName("_program"),
+                            SyntaxFactory.InvocationExpression(
+                                SyntaxFactory.MemberAccessExpression(
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    SyntaxFactory.IdentifierName("context"),
+                                    SyntaxFactory.IdentifierName("CreateProgramWithSource")),
+                                SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
+                                    SyntaxFactory.Argument(SyntaxFactory.IdentifierName("Source"))))))),
+                        SyntaxFactory.ExpressionStatement(SyntaxFactory.InvocationExpression(
+                            SyntaxFactory.MemberAccessExpression(
+                                SyntaxKind.SimpleMemberAccessExpression,
+                                SyntaxFactory.IdentifierName("_program"),
+                                SyntaxFactory.IdentifierName("Build"))))));
+
             foreach (var kernel in kernels)
             {
+                if (kernel.DeclaringSyntaxReferences.Length != 1)
+                    continue;
+
+                var syntax = await kernel.DeclaringSyntaxReferences[0].GetSyntaxAsync(cancellationToken).ConfigureAwait(false);
+                if (!(syntax is MethodDeclarationSyntax methodDeclaration))
+                    continue;
+
+                var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
+                harness = harness.AddMembers(GenerateHarness(semanticModel, methodDeclaration, cancellationToken));
             }
+
+            var compilationUnit = SyntaxFactory.CompilationUnit().AddMembers(
+                SyntaxFactory.NamespaceDeclaration(SyntaxFactory.IdentifierName("TODO"))
+                    .AddUsings(
+                        SyntaxFactory.UsingDirective(SyntaxFactory.IdentifierName(nameof(System))),
+                        SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(typeof(InAttribute).Namespace)),
+                        SyntaxFactory.UsingDirective(SyntaxFactory.IdentifierName(nameof(NOpenCL))),
+                        SyntaxFactory.UsingDirective(
+                            SyntaxFactory.NameEquals(SyntaxFactory.IdentifierName("Buffer")),
+                            SyntaxFactory.ParseName("NOpenCL.Buffer")))
+                    .AddMembers(harness));
+            var text = Formatter.Format(compilationUnit, _workspace).ToFullString();
+            return builder.ToImmutable();
         }
 
-        private static async Task<Solution> OpenSolutionAsync(string solutionFilePath, CancellationToken cancellationToken)
+        private MemberDeclarationSyntax GenerateHarness(SemanticModel semanticModel, MethodDeclarationSyntax methodDeclaration, CancellationToken cancellationToken)
+        {
+            var harnessMethod = SyntaxFactory.MethodDeclaration(SyntaxFactory.IdentifierName("EventTask"), methodDeclaration.Identifier)
+                .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.AsyncKeyword));
+
+            var block = SyntaxFactory.Block();
+            foreach (var parameter in methodDeclaration.ParameterList.Parameters)
+            {
+                var harnessParameter = SyntaxFactory.Parameter(parameter.Identifier);
+                if (parameter.Type is GenericNameSyntax genericName
+                    && genericName.Identifier.ValueText == "Pointer"
+                    && genericName.TypeArgumentList.Arguments.Count == 1)
+                {
+                    harnessParameter = harnessParameter.WithType(SyntaxFactory.IdentifierName("Buffer"));
+                }
+                else
+                {
+                    harnessParameter = harnessParameter.WithType(parameter.Type);
+                }
+
+                harnessMethod = harnessMethod.AddParameterListParameters(harnessParameter);
+
+                ExpressionSyntax argumentExpression = SyntaxFactory.IdentifierName(parameter.Identifier.Text);
+                if (semanticModel.GetTypeInfo(parameter.Type, cancellationToken).Type is INamedTypeSymbol namedType)
+                {
+                    switch (namedType.SpecialType)
+                    {
+                    case SpecialType.System_UInt32:
+                        // Have to cast to int for SetValue
+                        argumentExpression = SyntaxFactory.CheckedExpression(
+                            SyntaxKind.UncheckedExpression,
+                            SyntaxFactory.CastExpression(
+                                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.IntKeyword)),
+                                argumentExpression));
+                        break;
+
+                    default:
+                        break;
+                    }
+                }
+
+                block = block.AddStatements(SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.InvocationExpression(
+                        SyntaxFactory.ParseExpression($"kernel.Arguments[{block.Statements.Count}].SetValue"),
+                        SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(argumentExpression))))));
+            }
+
+            harnessMethod = harnessMethod.AddBodyStatements(
+                SyntaxFactory.UsingStatement(block).WithDeclaration(
+                    SyntaxFactory.VariableDeclaration(
+                        SyntaxFactory.IdentifierName("var"),
+                        SyntaxFactory.SingletonSeparatedList(SyntaxFactory.VariableDeclarator("kernel").WithInitializer(
+                            SyntaxFactory.EqualsValueClause(
+                                SyntaxFactory.InvocationExpression(
+                                    SyntaxFactory.MemberAccessExpression(
+                                        SyntaxKind.SimpleMemberAccessExpression,
+                                        SyntaxFactory.IdentifierName("_program"),
+                                        SyntaxFactory.IdentifierName("CreateKernel")),
+                                    SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(
+                                        SyntaxFactory.ParseExpression($"nameof({methodDeclaration.Identifier.Text})")))))))))));
+            return harnessMethod;
+        }
+
+        private static async Task<(Workspace, Solution)> OpenSolutionAsync(string solutionFilePath, CancellationToken cancellationToken)
         {
             var workspace = MSBuildWorkspace.Create();
             var solution = await workspace.OpenSolutionAsync(solutionFilePath, cancellationToken).ConfigureAwait(false);
-            return solution;
+            return (workspace, solution);
         }
 
         private class CodeGeneratorVisitor : CSharpSyntaxWalker

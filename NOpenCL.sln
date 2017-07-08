@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+# Visual Studio 15
+VisualStudioVersion = 15.0.26621.2
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOpenCL", "NOpenCL\NOpenCL.csproj", "{C94F61DD-9361-4B1F-B1A8-DAD72BD6FD51}"
 EndProject
@@ -23,6 +23,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{47E2DAA8
 		build\appveyor-install.ps1 = build\appveyor-install.ps1
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NOpenCL.Generator", "NOpenCL.Generator\NOpenCL.Generator.csproj", "{DD2B6190-0B14-4F6C-A8DD-279FB630E1BF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -37,11 +39,18 @@ Global
 		{E3049450-381D-42F5-AB04-16628C8C85BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E3049450-381D-42F5-AB04-16628C8C85BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E3049450-381D-42F5-AB04-16628C8C85BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DD2B6190-0B14-4F6C-A8DD-279FB630E1BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD2B6190-0B14-4F6C-A8DD-279FB630E1BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD2B6190-0B14-4F6C-A8DD-279FB630E1BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD2B6190-0B14-4F6C-A8DD-279FB630E1BF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{47E2DAA8-FDA9-4C18-990E-ABC9413ACFB0} = {8C7939AD-02F1-456F-9754-3AB7D6E7BD03}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {614E3A8B-88B9-4B8E-B526-8C210342A796}
 	EndGlobalSection
 EndGlobal

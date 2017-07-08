@@ -5,6 +5,7 @@ namespace NOpenCL
 {
     using System;
     using System.ComponentModel;
+    using System.Threading;
     using NOpenCL.SafeHandles;
 
     public sealed class CommandQueue : IDisposable
@@ -107,6 +108,33 @@ namespace NOpenCL
             return new Event(handle);
         }
 
+        public EventTask ReadBufferAsync(Buffer buffer, long offset, long size, IntPtr destination)
+        {
+            EventTask marker;
+            bool disposeMarker;
+            if (SynchronizationContext.Current is ComputeSynchronizationContext context)
+            {
+                marker = context.CurrentEvent;
+                disposeMarker = false;
+            }
+            else
+            {
+                // No synchronization information is available, so enqueue a marker and read the buffer after that
+                marker = WhenAllAsync();
+                disposeMarker = true;
+            }
+
+            try
+            {
+                return UnsafeNativeMethods.ReadBufferAsync(Handle, buffer.Handle, (IntPtr)offset, (IntPtr)size, destination, marker);
+            }
+            finally
+            {
+                if (disposeMarker)
+                    marker.Event?.Dispose();
+            }
+        }
+
         public Event EnqueueReadBufferRect(Buffer buffer, bool blocking, BufferCoordinates bufferOrigin, BufferCoordinates hostOrigin, BufferSize region, long bufferRowPitch, long bufferSlicePitch, long hostRowPitch, long hostSlicePitch, IntPtr destination, params Event[] eventWaitList)
         {
             EventSafeHandle[] eventHandles = null;
@@ -127,6 +155,33 @@ namespace NOpenCL
             return new Event(handle);
         }
 
+        public EventTask WriteBufferAsync(Buffer buffer, long offset, long size, IntPtr source)
+        {
+            EventTask marker;
+            bool disposeMarker;
+            if (SynchronizationContext.Current is ComputeSynchronizationContext context)
+            {
+                marker = context.CurrentEvent;
+                disposeMarker = false;
+            }
+            else
+            {
+                // No synchronization information is available, so enqueue a marker and read the buffer after that
+                marker = WhenAllAsync();
+                disposeMarker = true;
+            }
+
+            try
+            {
+                return UnsafeNativeMethods.WriteBufferAsync(Handle, buffer.Handle, (IntPtr)offset, (IntPtr)size, source, marker);
+            }
+            finally
+            {
+                if (disposeMarker)
+                    marker.Event?.Dispose();
+            }
+        }
+
         public Event EnqueueWriteBufferRect(Buffer buffer, bool blocking, BufferCoordinates bufferOrigin, BufferCoordinates hostOrigin, BufferSize region, long bufferRowPitch, long bufferSlicePitch, long hostRowPitch, long hostSlicePitch, IntPtr source, params Event[] eventWaitList)
         {
             EventSafeHandle[] eventHandles = null;
@@ -145,6 +200,33 @@ namespace NOpenCL
 
             EventSafeHandle handle = UnsafeNativeMethods.EnqueueCopyBuffer(Handle, source.Handle, destination.Handle, (IntPtr)sourceOffset, (IntPtr)destinationOffset, (IntPtr)size, eventHandles);
             return new Event(handle);
+        }
+
+        public EventTask CopyBufferAsync(Buffer source, Buffer destination, long sourceOffset, long destinationOffset, long size)
+        {
+            EventTask marker;
+            bool disposeMarker;
+            if (SynchronizationContext.Current is ComputeSynchronizationContext context)
+            {
+                marker = context.CurrentEvent;
+                disposeMarker = false;
+            }
+            else
+            {
+                // No synchronization information is available, so enqueue a marker and read the buffer after that
+                marker = WhenAllAsync();
+                disposeMarker = true;
+            }
+
+            try
+            {
+                return UnsafeNativeMethods.CopyBufferAsync(Handle, source.Handle, destination.Handle, (IntPtr)sourceOffset, (IntPtr)destinationOffset, (IntPtr)size, marker);
+            }
+            finally
+            {
+                if (disposeMarker)
+                    marker.Event?.Dispose();
+            }
         }
 
         public Event EnqueueCopyBufferRect(Buffer source, Buffer destination, BufferCoordinates sourceOrigin, BufferCoordinates destinationOrigin, BufferSize region, long sourceRowPitch, long sourceSlicePitch, long destinationRowPitch, long destinationSlicePitch, params Event[] eventWaitList)
@@ -360,6 +442,11 @@ namespace NOpenCL
 
             EventSafeHandle handle = UnsafeNativeMethods.EnqueueMarkerWithWaitList(Handle, eventHandles);
             return new Event(handle);
+        }
+
+        public EventTask WhenAllAsync()
+        {
+            return UnsafeNativeMethods.WhenAllAsync(Handle);
         }
 
         /// <summary>

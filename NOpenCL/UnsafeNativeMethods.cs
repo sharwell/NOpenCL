@@ -44,6 +44,10 @@ namespace NOpenCL
             return items;
         }
 
+        private struct VoidResult
+        {
+        }
+
         public abstract class ParameterInfo<T>
         {
             private readonly int _name;

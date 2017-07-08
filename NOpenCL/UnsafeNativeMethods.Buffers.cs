@@ -181,10 +181,19 @@ namespace NOpenCL
                 throw new ArgumentNullException(nameof(buffer));
             if (destination == IntPtr.Zero)
                 throw new ArgumentNullException(nameof(destination));
+            if (size.ToInt64() <= 0)
+                throw new ArgumentOutOfRangeException(nameof(size));
 
             EventSafeHandle result;
             ErrorHandler.ThrowOnFailure(clEnqueueReadBuffer(commandQueue, buffer, blocking, offset, size, destination, GetNumItems(eventWaitList), GetItems(eventWaitList), out result));
             return result;
+        }
+
+        public static EventTask ReadBufferAsync(CommandQueueSafeHandle commandQueue, BufferSafeHandle buffer, IntPtr offset, IntPtr size, IntPtr destination, EventTask waitEvent)
+        {
+            var eventWaitList = waitEvent.Event != null ? new[] { waitEvent.Event } : null;
+            bool blocking = false;
+            return new EventTask(EnqueueReadBuffer(commandQueue, buffer, blocking, offset, size, destination, eventWaitList));
         }
 
         [DllImport(ExternDll.OpenCL)]
@@ -211,6 +220,13 @@ namespace NOpenCL
             EventSafeHandle result;
             ErrorHandler.ThrowOnFailure(clEnqueueWriteBuffer(commandQueue, buffer, blocking, offset, size, source, GetNumItems(eventWaitList), GetItems(eventWaitList), out result));
             return result;
+        }
+
+        public static EventTask WriteBufferAsync(CommandQueueSafeHandle commandQueue, BufferSafeHandle buffer, IntPtr offset, IntPtr size, IntPtr source, EventTask waitEvent)
+        {
+            var eventWaitList = waitEvent.Event != null ? new[] { waitEvent.Event } : null;
+            bool blocking = false;
+            return new EventTask(EnqueueWriteBuffer(commandQueue, buffer, blocking, offset, size, source, eventWaitList));
         }
 
         [DllImport(ExternDll.OpenCL)]
@@ -356,6 +372,12 @@ namespace NOpenCL
             EventSafeHandle result;
             ErrorHandler.ThrowOnFailure(clEnqueueCopyBuffer(commandQueue, sourceBuffer, destinationBuffer, sourceOffset, destinationOffset, size, GetNumItems(eventWaitList), GetItems(eventWaitList), out result));
             return result;
+        }
+
+        public static EventTask CopyBufferAsync(CommandQueueSafeHandle commandQueue, BufferSafeHandle sourceBuffer, BufferSafeHandle destinationBuffer, IntPtr sourceOffset, IntPtr destinationOffset, IntPtr size, EventTask waitEvent)
+        {
+            var eventWaitList = waitEvent.Event != null ? new[] { waitEvent.Event } : null;
+            return new EventTask(EnqueueCopyBuffer(commandQueue, sourceBuffer, destinationBuffer, sourceOffset, destinationOffset, size, eventWaitList));
         }
 
         [DllImport(ExternDll.OpenCL)]

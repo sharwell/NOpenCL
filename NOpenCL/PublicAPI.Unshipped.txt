@@ -85,6 +85,7 @@ NOpenCL.ChannelType.UnsignedInt32 = 4316 -> NOpenCL.ChannelType
 NOpenCL.ChannelType.UnsignedInt8 = 4314 -> NOpenCL.ChannelType
 NOpenCL.CommandQueue
 NOpenCL.CommandQueue.Context.get -> NOpenCL.Context
+NOpenCL.CommandQueue.CopyBufferAsync(NOpenCL.Buffer source, NOpenCL.Buffer destination, long sourceOffset, long destinationOffset, long size) -> NOpenCL.EventTask
 NOpenCL.CommandQueue.Device.get -> NOpenCL.Device
 NOpenCL.CommandQueue.Dispose() -> void
 NOpenCL.CommandQueue.EnqueueBarrier(params NOpenCL.Event[] eventWaitList) -> NOpenCL.Event
@@ -115,7 +116,10 @@ NOpenCL.CommandQueue.EnqueueWriteImage(NOpenCL.Image image, bool blocking, NOpen
 NOpenCL.CommandQueue.Finish() -> void
 NOpenCL.CommandQueue.Flush() -> void
 NOpenCL.CommandQueue.Properties.get -> NOpenCL.CommandQueueProperties
+NOpenCL.CommandQueue.ReadBufferAsync(NOpenCL.Buffer buffer, long offset, long size, System.IntPtr destination) -> NOpenCL.EventTask
 NOpenCL.CommandQueue.ReferenceCount.get -> uint
+NOpenCL.CommandQueue.WhenAllAsync() -> NOpenCL.EventTask
+NOpenCL.CommandQueue.WriteBufferAsync(NOpenCL.Buffer buffer, long offset, long size, System.IntPtr source) -> NOpenCL.EventTask
 NOpenCL.CommandQueueProperties
 NOpenCL.CommandQueueProperties.None = 0 -> NOpenCL.CommandQueueProperties
 NOpenCL.CommandQueueProperties.OutOfOrderExecutionModeEnable = 1 -> NOpenCL.CommandQueueProperties
@@ -153,6 +157,10 @@ NOpenCL.CommandType.User = 4612 -> NOpenCL.CommandType
 NOpenCL.CommandType.WriteBuffer = 4596 -> NOpenCL.CommandType
 NOpenCL.CommandType.WriteBufferRect = 4610 -> NOpenCL.CommandType
 NOpenCL.CommandType.WriteImage = 4599 -> NOpenCL.CommandType
+NOpenCL.ComputeSynchronizationContext
+NOpenCL.ComputeSynchronizationContext.Restorer
+NOpenCL.ComputeSynchronizationContext.Restorer.Dispose() -> void
+NOpenCL.ComputeSynchronizationContext.Restorer.Restorer(NOpenCL.ComputeSynchronizationContext current, System.Threading.SynchronizationContext context) -> void
 NOpenCL.Context
 NOpenCL.Context.CreateBuffer(NOpenCL.MemoryFlags flags, long size) -> NOpenCL.Buffer
 NOpenCL.Context.CreateBuffer(NOpenCL.MemoryFlags flags, long size, System.IntPtr hostAddress) -> NOpenCL.Buffer
@@ -272,9 +280,27 @@ NOpenCL.Event.Context.get -> NOpenCL.Context
 NOpenCL.Event.Dispose() -> void
 NOpenCL.Event.ReferenceCount.get -> uint
 NOpenCL.Event.SetUserEventStatus(NOpenCL.ExecutionStatus status) -> void
+NOpenCL.EventAwaiter
+NOpenCL.EventAwaiter.EventAwaiter(NOpenCL.EventTask eventTask) -> void
+NOpenCL.EventAwaiter.GetResult() -> void
+NOpenCL.EventAwaiter.IsCompleted.get -> bool
+NOpenCL.EventAwaiter.OnCompleted(System.Action continuation) -> void
+NOpenCL.EventAwaiter.UnsafeOnCompleted(System.Action continuation) -> void
 NOpenCL.EventStatusEventArgs
 NOpenCL.EventStatusEventArgs.EventStatusEventArgs(NOpenCL.ExecutionStatus status) -> void
 NOpenCL.EventStatusEventArgs.Status.get -> NOpenCL.ExecutionStatus
+NOpenCL.EventTask
+NOpenCL.EventTask.Event.get -> NOpenCL.SafeHandles.EventSafeHandle
+NOpenCL.EventTask.EventTask(NOpenCL.SafeHandles.EventSafeHandle eventHandle) -> void
+NOpenCL.EventTask.GetAwaiter() -> NOpenCL.EventAwaiter
+NOpenCL.EventTaskMethodBuilder
+NOpenCL.EventTaskMethodBuilder.AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine) -> void
+NOpenCL.EventTaskMethodBuilder.AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine) -> void
+NOpenCL.EventTaskMethodBuilder.SetException(System.Exception exception) -> void
+NOpenCL.EventTaskMethodBuilder.SetResult() -> void
+NOpenCL.EventTaskMethodBuilder.SetStateMachine(System.Runtime.CompilerServices.IAsyncStateMachine stateMachine) -> void
+NOpenCL.EventTaskMethodBuilder.Start<TStateMachine>(ref TStateMachine stateMachine) -> void
+NOpenCL.EventTaskMethodBuilder.Task.get -> NOpenCL.EventTask
 NOpenCL.ExecutionCapabilities
 NOpenCL.ExecutionCapabilities.Kernel = 1 -> NOpenCL.ExecutionCapabilities
 NOpenCL.ExecutionCapabilities.NativeKernel = 2 -> NOpenCL.ExecutionCapabilities
@@ -477,10 +503,12 @@ readonly NOpenCL.ImageDescriptor.Type -> NOpenCL.MemObjectType
 readonly NOpenCL.ImageDescriptor.Width -> System.UIntPtr
 readonly NOpenCL.ImageFormat.ChannelOrder -> NOpenCL.ChannelOrder
 readonly NOpenCL.ImageFormat.ChannelType -> NOpenCL.ChannelType
+static NOpenCL.ComputeSynchronizationContext.Push() -> NOpenCL.ComputeSynchronizationContext.Restorer
 static NOpenCL.Context.Create(NOpenCL.Platform platform, NOpenCL.DeviceType deviceType) -> NOpenCL.Context
 static NOpenCL.Context.Create(NOpenCL.Platform platform, params NOpenCL.Device[] devices) -> NOpenCL.Context
 static NOpenCL.Context.Create(params NOpenCL.Device[] devices) -> NOpenCL.Context
 static NOpenCL.Event.WaitAll(params NOpenCL.Event[] events) -> void
+static NOpenCL.EventTaskMethodBuilder.Create() -> NOpenCL.EventTaskMethodBuilder
 static NOpenCL.Extensions.KhrD3D10Sharing.GetD3D10PreferSharedResourcesKhr(this NOpenCL.Context context) -> bool
 static NOpenCL.Extensions.KhrD3D10Sharing.IsSupported(NOpenCL.Device device) -> bool
 static NOpenCL.Extensions.KhrD3D10Sharing.IsSupported(NOpenCL.Platform platform) -> bool

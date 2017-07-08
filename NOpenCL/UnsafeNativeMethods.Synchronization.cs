@@ -63,6 +63,17 @@ namespace NOpenCL
             return result;
         }
 
+        internal static EventTask WhenAllAsync(CommandQueueSafeHandle commandQueue, EventTask[] events)
+        {
+            EventSafeHandle[] eventWaitList = events != null ? Array.ConvertAll(events, eventTask => eventTask.Event) : null;
+            return new EventTask(EnqueueMarkerWithWaitList(commandQueue, eventWaitList));
+        }
+
+        internal static EventTask WhenAllAsync(CommandQueueSafeHandle commandQueue)
+        {
+            return WhenAllAsync(commandQueue, null);
+        }
+
         /// <summary>
         /// A synchronization point that enqueues a barrier operation.
         /// http://www.khronos.org/registry/cl/sdk/1.2/docs/man/xhtml/clEnqueueBarrierWithWaitList.html

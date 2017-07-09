@@ -392,6 +392,33 @@ namespace NOpenCL
             return new Event(handle);
         }
 
+        public EventTask NDRangeKernelAsync(Kernel kernel, IntPtr[] globalWorkOffset, IntPtr[] globalWorkSize, IntPtr[] localWorkSize)
+        {
+            EventTask marker;
+            bool disposeMarker;
+            if (SynchronizationContext.Current is ComputeSynchronizationContext context)
+            {
+                marker = context.CurrentEvent;
+                disposeMarker = false;
+            }
+            else
+            {
+                // No synchronization information is available, so enqueue a marker and read the buffer after that
+                marker = WhenAllAsync();
+                disposeMarker = true;
+            }
+
+            try
+            {
+                return UnsafeNativeMethods.NDRangeKernelAsync(Handle, kernel.Handle, globalWorkOffset, globalWorkSize, localWorkSize, marker);
+            }
+            finally
+            {
+                if (disposeMarker)
+                    marker.Event?.Dispose();
+            }
+        }
+
         /// <summary>
         /// Enqueues a command to execute a <see cref="Kernel"/> on this command queue's <see cref="Device"/>.
         /// </summary>

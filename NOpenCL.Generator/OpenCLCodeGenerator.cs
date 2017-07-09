@@ -109,11 +109,12 @@ namespace NOpenCL.Generator
 
             NameSyntax namespaceName = SyntaxFactory.IdentifierName("TODO");
             string embeddedResource = namespaceName.ToString() + "." + builder[0].Item1;
+            embeddedResource = builder[0].Item2.ToString();
             harness = harness.AddMembers(
                 SyntaxFactory
                     .FieldDeclaration(
                         SyntaxFactory.VariableDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)))
-                        .AddVariables(SyntaxFactory.VariableDeclarator("Source").WithInitializer(SyntaxFactory.EqualsValueClause(SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(embeddedResource))))))
+                        .AddVariables(SyntaxFactory.VariableDeclarator("Source").WithInitializer(SyntaxFactory.EqualsValueClause(SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal("@\"" + embeddedResource.Replace("\"", "\"\"") + "\"", embeddedResource))))))
                     .AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword), SyntaxFactory.Token(SyntaxKind.ConstKeyword)),
                 SyntaxFactory
                     .FieldDeclaration(
@@ -161,7 +162,19 @@ namespace NOpenCL.Generator
                             SyntaxFactory.MemberAccessExpression(
                                 SyntaxKind.SimpleMemberAccessExpression,
                                 SyntaxFactory.IdentifierName("_program"),
-                                SyntaxFactory.IdentifierName("Build"))))));
+                                SyntaxFactory.IdentifierName("Build"))))),
+                SyntaxFactory.MethodDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)), "Dispose")
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+                    .AddBodyStatements(
+                        SyntaxFactory.ExpressionStatement(SyntaxFactory.ParseExpression("Dispose(true)")),
+                        SyntaxFactory.ExpressionStatement(SyntaxFactory.ParseExpression("GC.SuppressFinalize(this)"))),
+                SyntaxFactory.MethodDeclaration(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)), "Dispose")
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.ProtectedKeyword), SyntaxFactory.Token(SyntaxKind.VirtualKeyword))
+                    .AddParameterListParameters(SyntaxFactory.Parameter(SyntaxFactory.Identifier("disposing")).WithType(SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.BoolKeyword))))
+                    .AddBodyStatements(
+                        SyntaxFactory.IfStatement(
+                            SyntaxFactory.ParseExpression("disposing"),
+                            SyntaxFactory.Block(SyntaxFactory.ParseStatement("_program.Dispose();")))));
 
             foreach (var kernel in kernels)
             {
@@ -193,7 +206,12 @@ namespace NOpenCL.Generator
         private MemberDeclarationSyntax GenerateHarness(SemanticModel semanticModel, MethodDeclarationSyntax methodDeclaration, CancellationToken cancellationToken)
         {
             var harnessMethod = SyntaxFactory.MethodDeclaration(SyntaxFactory.IdentifierName("EventTask"), methodDeclaration.Identifier)
-                .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.AsyncKeyword));
+                .AddModifiers(SyntaxFactory.Token(SyntaxKind.PublicKeyword), SyntaxFactory.Token(SyntaxKind.AsyncKeyword))
+                .AddParameterListParameters(
+                    SyntaxFactory.Parameter(SyntaxFactory.Identifier("commandQueue")).WithType(SyntaxFactory.IdentifierName("CommandQueue")),
+                    SyntaxFactory.Parameter(SyntaxFactory.Identifier("globalWorkOffset")).WithType(SyntaxFactory.ParseTypeName("IntPtr[]")),
+                    SyntaxFactory.Parameter(SyntaxFactory.Identifier("globalWorkSize")).WithType(SyntaxFactory.ParseTypeName("IntPtr[]")),
+                    SyntaxFactory.Parameter(SyntaxFactory.Identifier("localWorkSize")).WithType(SyntaxFactory.ParseTypeName("IntPtr[]")));
 
             var block = SyntaxFactory.Block();
             foreach (var parameter in methodDeclaration.ParameterList.Parameters)
@@ -236,6 +254,9 @@ namespace NOpenCL.Generator
                         SyntaxFactory.ParseExpression($"kernel.Arguments[{block.Statements.Count}].SetValue"),
                         SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(argumentExpression))))));
             }
+
+            block = block.AddStatements(
+                SyntaxFactory.ParseStatement("await commandQueue.NDRangeKernelAsync(kernel, globalWorkOffset, globalWorkSize, localWorkSize);"));
 
             harnessMethod = harnessMethod.AddBodyStatements(
                 SyntaxFactory.UsingStatement(block).WithDeclaration(

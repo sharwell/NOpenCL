@@ -50,6 +50,18 @@ namespace NOpenCL
             return result;
         }
 
+        public static EventTask NDRangeKernelAsync(
+            CommandQueueSafeHandle commandQueue,
+            KernelSafeHandle kernel,
+            IntPtr[] globalWorkOffset,
+            IntPtr[] globalWorkSize,
+            IntPtr[] localWorkSize,
+            EventTask waitEvent)
+        {
+            var eventWaitList = waitEvent.Event != null ? new[] { waitEvent.Event } : null;
+            return new EventTask(EnqueueNDRangeKernel(commandQueue, kernel, globalWorkOffset, globalWorkSize, localWorkSize, eventWaitList));
+        }
+
         [DllImport(ExternDll.OpenCL)]
         private static extern ErrorCode clEnqueueTask(
             CommandQueueSafeHandle commandQueue,
